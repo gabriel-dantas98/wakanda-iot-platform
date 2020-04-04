@@ -10,11 +10,11 @@ database = os.getenv('MONGO_DB_NAME')
 def mongo_connect():
     
     try:
-        client = MongoClient(f"mongodb+srv://{username}:{password}@{cluster_address}/{collection}?retryWrites=true&w=majority")
+        
+        client = MongoClient(f"mongodb+srv://{ username }:{ password }@{ cluster_address }/{ collection }?retryWrites=true&w=majority")
         db = client[database][collection]
+
     except Exception as err:
         raise(err)
     
     return client, db
-
-def get():

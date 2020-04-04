@@ -26,6 +26,7 @@ def insert_device(device):
         print(Error)
 
 def get_all_devices():
+
     print("Searching all devices...")
 
     db = atlas_connect().devices
