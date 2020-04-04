@@ -1,0 +1,10 @@
+{
+  "name": "orchestrator",
+  "version": "1.0.0",
+  "description": "",
+  "dependencies": {
+    "serverless-python-requirements": "^5.1.0"
+  },
+  "author": "",
+  "license": "ISC"
+}

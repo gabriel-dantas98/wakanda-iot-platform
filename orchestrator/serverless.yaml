@@ -1,3 +1,5 @@
+org: gabsdevops
+
 service: wakanda
 app: orchestrator
 
@@ -7,31 +9,38 @@ plugins:
 provider:
     name: aws
     runtime: python3.7
+    timeout: 60
     environment:
-        MONGO_DB_USER: ${env:MONGO_DB_USER}
-        MONGO_DB_PASS: ${env:MONGO_DB_PASS}
-        MONGO_DB_NAME: ${env:MONGO_DB_NAME}
-        MONGO_DB_URL: ${env:MONGO_DB_URL}
-        MONGO_COLLECTION_NAME: ${env:MONGO_COLLECTION_NAME}
+        MONGO_DB_USER: ${param:MONGO_DB_USER}
+        MONGO_DB_PASS: ${param:MONGO_DB_PASS}
+        MONGO_DB_NAME: ${param:MONGO_DB_NAME}
+        MONGO_DB_URL: ${param:MONGO_DB_URL}
+        MONGO_COLLECTION_NAME: ${param:MONGO_COLLECTION_NAME}
     iamManagedPolicies:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 
 functions:
     create:
-        handler: devices/devices.create_devices
+        handler: devices.create_devices
         events:
         - http:
             path: devices
             method: post
             cors: true
     list:
-        handler: devices/devices.list_devices
+        handler: devices.list_devices
         events:
             - http:
                 path: devices
                 method: get
                 cors: true
-
+    home:
+        handler: devices.home
+        events:
+            - http:
+                path: /
+                method: get
+                cors: true
     # get:
     #     handler: item/get.get
     #     events:

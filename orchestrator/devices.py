@@ -1,10 +1,10 @@
 import json
 import uuid
 from bson.json_util import dumps
+from pprint import pprint
 
 # Project Packages
 from database import mongo_connect
-from utils import lambda_response
 
 def create_devices(event, context):
 
@@ -26,19 +26,22 @@ def create_devices(event, context):
 def list_devices(event, context):
 
     client, db = mongo_connect()
+    result = list(db.find())
+    print("Result: ", result)
+    print("Len: ", len(result))
+    result_serialized = dumps(result)
+    result_jsonified = json.loads(result_serialized)
+    
+    return response(200, result_jsonified)
 
-    result = json.loads(dumps(list(db.find())))
-
-    return response(200, result)
+def home(event, context):
+    return response(200, { "wakanda": "FOREVER" })
 
 def response(status_code, payload):
     return  {
                 "statusCode": status_code,
                 "body": json.dumps(payload)
             }
-
-def home(event, context):
-    return {"status": 200, "body": "WAKANDA ORCHESCTATOR"}
 
 def get_topic_path(device_name, io_type, io_name, io_pin):
     return f"{device_name}/{io_type}/{io_name}/{io_pin}"
