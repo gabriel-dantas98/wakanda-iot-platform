@@ -70,6 +70,7 @@ String getPublicIp();
 String request(String method, String uri, String payload = "", const char* fingerprint = "");
 void WiFiConnect();
 PubSubClient MQTTConnect();
+String byteMessageToString(byte* byteMessage, unsigned int length);
 
 void setup() {
 
@@ -86,14 +87,14 @@ void setup() {
   PubSubClient mqttConnection = MQTTConnect();
   
   Actuator actuators[] = {
-    {"lampada_quarto", "Lampada quarto", "relay", LED_BUILTIN, ""}
+    {"lampada_quarto", "Lampada quarto", "relay", 15, ""}
   };
   
   Serial.print("Number of actuators: ");
   Serial.println(ARRAY_SIZE(actuators));
   
   Sensor sensors[] = {
-    {"presenca_quarto", "Presenca Quarto", "proximity", 15, ""}
+    {"presenca_quarto", "Presenca Quarto", "proximity", 9, ""}
   };
   
   Serial.print("Number of sensors: ");
@@ -120,6 +121,7 @@ void setup() {
   Serial.print("Subcribing in topic: ");
   Serial.println(wakandaDevice.actuators[0].topic);
   mqttConnection.subscribe(wakandaDevice.actuators[0].topic);
+  Serial.print("MQTT topic activated!");
 }
 
 void loop() {
@@ -130,11 +132,7 @@ void loop() {
 }
 
 void WiFiConnect() {
-  
-//  while (WiFi.status() != WL_CONNECTED) {
-//    delay(500);
-//    Serial.println("Connecting to WiFi..");
-//  }
+
   while ((WiFiMulti.run() != WL_CONNECTED)) {
     delay(500);
     Serial.println("Connecting to WiFi..");
@@ -325,11 +323,10 @@ String request(String method, String uri, String payload, const char* fingerprin
   
   HTTPClient https;
   
-  //https.useHTTP10(true);
   https.addHeader("Content-Type", "application/json");
   
   int responseCode;
-  String responseContent;
+  String responseContent = "";
 
   https.begin(*client, "https://" + uri);
 
@@ -342,12 +339,14 @@ String request(String method, String uri, String payload, const char* fingerprin
     if (responseCode == HTTP_CODE_OK) {
       Serial.println("Request succeed!");
       responseContent = https.getString();
+    } else {
+      Serial.println("Status code not OK...");
+      Serial.println(responseCode);      
     }
 
   } else if ( method == "POST") {
 
     String json;
-    //serializeJson(payload, json);
 
     responseCode = https.POST(payload);
     Serial.print("Responde code POST request code: ");
@@ -356,23 +355,22 @@ String request(String method, String uri, String payload, const char* fingerprin
     if (responseCode == HTTP_CODE_OK) {
       Serial.println("Request succeed!");
       responseContent = https.getString();
+    } else if (responseCode == 502) {
+      Serial.println("Request 502 device already created!");
+      responseContent = https.getString();      
+    } else {
+      Serial.println("This method not supported...");
     }
-
-  } else {
-    Serial.println("This method not supported...");
   }
-
-
+  
   https.end();
-
   return responseContent;
 }
 
 String byteMessageToString(byte* byteMessage, unsigned int length) {
      String msg;
  
-    for(int i = 0; i < length; i++) 
-    {
+    for(int i = 0; i < length; i++) {
        char c = (char)byteMessage[i];
        msg += c;
     }
