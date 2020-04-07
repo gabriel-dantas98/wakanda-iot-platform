@@ -1,18 +1,24 @@
 // ########## BIBLIOTECAS ########## //
 
 #include <ESP8266WiFi.h>
+#include <ESP8266WiFiMulti.h>
+#include <WiFiClientSecureBearSSL.h>
 #include <ESP8266HTTPClient.h>
+
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
 #define ARRAY_SIZE(array) ((sizeof(array))/(sizeof(array[0]))) //WHAT https://forum.arduino.cc/index.php?topic=527619.0
 
-const char* ssid = "###########";
-const char* password = "#############";
-const char* WAKANDA_API = "192.168.2.136:5000";
-const char* BROKER_ADDRESS = "m24.cloudmqtt.com";
-const char* BROKER_USER = "##########";
-const char* BROKER_PASSWORD = "##########";
+const char fingerprintAWS[] PROGMEM = "1E AB 2B 7B 17 4B 7D B1 6C A4 F8 69 30 E4 71 B6 99 1F C3 0C";
+const char fingerprintWAKANDA[] PROGMEM = "5C BF B8 76 32 AB C1 D9 79 63 6D 30 F1 71 F0 5D 92 AF 02 A7";
+
+const char* ssid = "#################";
+const char* password = "#####################";
+const char* WAKANDA_API = "#####################";
+const char* BROKER_ADDRESS = "#####################";
+const char* BROKER_USER = "#####################";
+const char* BROKER_PASSWORD = "#####################";
 const int BROKER_PORT = 12671;
 const char* DISPLAY_DEVICE_NAME = "NodemcuQuarto01";
 
@@ -53,7 +59,7 @@ struct Device {
 };
 
 WiFiClient espClient;
-HTTPClient http;
+ESP8266WiFiMulti WiFiMulti;
 PubSubClient MQTT(espClient);
 
 Device device;
@@ -61,18 +67,22 @@ Device device;
 //Prototypes
 Device getDeviceConfig(String name, const char* deviceName, int port, IPAddress localIp, String publicIp, String macAddres, IPAddress gateway, String mask, String hostname, IPAddress dns, String ssid);
 String getPublicIp();
-String request(String method, String uri, String payload = "");
+String request(String method, String uri, String payload = "", const char* fingerprint = "");
 void WiFiConnect();
 PubSubClient MQTTConnect();
 
 void setup() {
 
   Serial.begin(9600);
-  WiFi.begin(ssid, password);
+  //WiFi.begin(ssid, password);
+  WiFi.mode(WIFI_STA);
+  WiFiMulti.addAP(ssid, password);
+
+  WiFiConnect();
+  
   MQTT.setServer(BROKER_ADDRESS, BROKER_PORT);
   MQTT.setCallback(MQTTCallback);
 
-  WiFiConnect();
   PubSubClient mqttConnection = MQTTConnect();
   
   Actuator actuators[] = {
@@ -96,14 +106,19 @@ void setup() {
 
   Serial.println("RUNNING SETUP....");
   String response = registryWakandaDevice(device);
-
+  Serial.println("Device registred!");
+  
   Device wakandaDevice = getWakandaDevice(response);
   Serial.println(wakandaDevice.displayName);
   Serial.println(wakandaDevice.network.localIP);
   Serial.println(wakandaDevice.sensors[0].topic);
   Serial.println(wakandaDevice.actuators[0].topic);
   
+  Serial.println("Activating device actuator");
   pinMode(wakandaDevice.actuators[0].pin, OUTPUT);
+
+  Serial.print("Subcribing in topic: ");
+  Serial.println(wakandaDevice.actuators[0].topic);
   mqttConnection.subscribe(wakandaDevice.actuators[0].topic);
 }
 
@@ -116,7 +131,11 @@ void loop() {
 
 void WiFiConnect() {
   
-  while (WiFi.status() != WL_CONNECTED) {
+//  while (WiFi.status() != WL_CONNECTED) {
+//    delay(500);
+//    Serial.println("Connecting to WiFi..");
+//  }
+  while ((WiFiMulti.run() != WL_CONNECTED)) {
     delay(500);
     Serial.println("Connecting to WiFi..");
   }
@@ -156,10 +175,10 @@ void MQTTCallback(char* topic, byte* bytePayload, unsigned int lengthPayload) {
   
     if (payload.equals("ON") || payload.equals("TurnON")) {
       Serial.println("Turning ON");
-      digitalWrite(LED_BUILTIN, HIGH);
+      digitalWrite(LED_BUILTIN, LOW);
     } else if (payload.equals("OFF") || payload.equals("TurnOFF")) {
       Serial.println("Turning OFF");
-      digitalWrite(LED_BUILTIN, LOW);      
+      digitalWrite(LED_BUILTIN, HIGH);      
     }
 }
 
@@ -258,14 +277,16 @@ String registryWakandaDevice(Device device) {
   Serial.print("Serialized: ");
   Serial.println(payloadString);
   
-  String response = request("POST", registryEndpoint, payloadString);
+  String response = request("POST", registryEndpoint, payloadString, fingerprintWAKANDA);
 
   return response;
 }
 
 String getPublicIp() {
-
-  return request("GET", "checkip.amazonaws.com");
+  String publicIP = request("GET", "checkip.amazonaws.com", "", fingerprintAWS);
+  publicIP.replace("\n","");
+  
+  return publicIP;
 }
 
 Device getDeviceConfig(String name, const char* deviceName, int port, IPAddress localIP, String publicIP, String macAddres, IPAddress gateway, IPAddress mask, String hostname, IPAddress dns, String ssid, Actuator actuators[], Sensor sensors[]) {
@@ -294,24 +315,33 @@ Device getDeviceConfig(String name, const char* deviceName, int port, IPAddress 
   return deviceConfig;
 }
 
-String request(String method, String uri, String payload) {
 
-  http.useHTTP10(true);
-  http.addHeader("Content-Type", "application/json");
+
+String request(String method, String uri, String payload, const char* fingerprint) {
+  
+  std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
+
+  client->setFingerprint(fingerprint);
+  
+  HTTPClient https;
+  
+  //https.useHTTP10(true);
+  https.addHeader("Content-Type", "application/json");
+  
   int responseCode;
   String responseContent;
 
-  http.begin("http://" + uri);
+  https.begin(*client, "https://" + uri);
 
   if (method == "GET") {
 
-    responseCode = http.GET();
+    responseCode = https.GET();
     Serial.print("Responde code GET request code: ");
     Serial.println(responseCode);
 
     if (responseCode == HTTP_CODE_OK) {
       Serial.println("Request succeed!");
-      responseContent = http.getString();
+      responseContent = https.getString();
     }
 
   } else if ( method == "POST") {
@@ -319,13 +349,13 @@ String request(String method, String uri, String payload) {
     String json;
     //serializeJson(payload, json);
 
-    responseCode = http.POST(payload);
+    responseCode = https.POST(payload);
     Serial.print("Responde code POST request code: ");
     Serial.println(responseCode);
 
     if (responseCode == HTTP_CODE_OK) {
       Serial.println("Request succeed!");
-      responseContent = http.getString();
+      responseContent = https.getString();
     }
 
   } else {
@@ -333,7 +363,7 @@ String request(String method, String uri, String payload) {
   }
 
 
-  http.end();
+  https.end();
 
   return responseContent;
 }

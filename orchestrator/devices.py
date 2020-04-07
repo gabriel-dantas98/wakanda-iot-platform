@@ -11,24 +11,24 @@ def create_devices(event, context):
     incoming_event = json.loads(event["body"])
 
     client, db = mongo_connect()
-
+    
+    if db.find_one({"name": incoming_event["name"]}):
+        print("Device already exist!")
+        return (409, {"error": "device already exist"})
+    
     devices = generate_topic(incoming_event)
     
-    item = {
-        '_id': str(uuid.uuid1()),
-        'data': devices,
-    }
+    devices['_id'] = str(uuid.uuid1())
+        
+    db.insert_one(devices)
 
-    db.insert_one(item)
-
-    return response(200, item)    
+    return response(200, devices)    
 
 def list_devices(event, context):
 
     client, db = mongo_connect()
     result = list(db.find())
-    print("Result: ", result)
-    print("Len: ", len(result))
+    
     result_serialized = dumps(result)
     result_jsonified = json.loads(result_serialized)
     

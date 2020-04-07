@@ -5,6 +5,7 @@ app: orchestrator
 
 plugins:
     - serverless-python-requirements
+    - serverless-domain-manager
 
 provider:
     name: aws
@@ -54,4 +55,17 @@ functions:
     #         - http:
     #             path: item/{id}
     #             method: delete
-    #             cors: true
+    #             cors: 
+
+custom:
+    stage: ${opt:stage, self:provider.stage}
+    domains:
+      prod: wakanda.insightvalley.host
+      staging: wakanda-staging.insightvalley.host
+      dev: wakanda-dev.insightvalley.host
+
+    customDomain:
+        domainName: ${self:custom.domains.${self:custom.stage}}
+        basePath: '' 
+        stage: ${self:custom.stage}
+        createRoute53Record: true
