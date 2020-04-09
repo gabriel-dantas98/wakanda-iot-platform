@@ -15,12 +15,15 @@ def create_devices(event, context):
     check_device_exists = db.find_one({"name": incoming_event["name"]})
     
     if check_device_exists:
-        result = list(check_device_exists)
+        
+        result = dict(check_device_exists)
         result_serialized = dumps(result)
         result_jsonified = json.loads(result_serialized)
+        
         print("Device already exist!")
         pprint(result_jsonified)
-        return (200, result_jsonified)
+        
+        return response(200, result_jsonified)
     
     devices = generate_topic(incoming_event)
     

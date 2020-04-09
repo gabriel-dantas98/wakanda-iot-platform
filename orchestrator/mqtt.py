@@ -1,10 +1,13 @@
 import paho.mqtt.client as mqtt
+import os
 
-broker_url = "m24.cloudmqtt.com"
-broker_port = 12671
+broker_url = os.getenv("BROKER_ADDRESS)
+broker_port = os.getenv("BROKER_PORT")
+broker_username = os.getenv("BROKER_USERNAME")
+broker_password = os.getenv("BROKER_PASSWORD")
 
 client = mqtt.Client()
-client.username_pw_set(username="vvhwrfxr",password="zYyw5weRs3HI")
+client.username_pw_set(username=broker_username,password=broker_password)
 
 def connect_broker():
     

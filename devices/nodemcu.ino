@@ -63,14 +63,14 @@ ESP8266WiFiMulti WiFiMulti;
 PubSubClient MQTT(espClient);
 
 Device device;
+Device wakandaDevice;
 
 //Prototypes
 Device getDeviceConfig(String name, const char* deviceName, int port, IPAddress localIp, String publicIp, String macAddres, IPAddress gateway, String mask, String hostname, IPAddress dns, String ssid);
 String getPublicIp();
 String request(String method, String uri, String payload = "", const char* fingerprint = "");
-void WiFiConnect();
+void WiFiConnect(); 
 PubSubClient MQTTConnect();
-String byteMessageToString(byte* byteMessage, unsigned int length);
 
 void setup() {
 
@@ -94,7 +94,7 @@ void setup() {
   Serial.println(ARRAY_SIZE(actuators));
   
   Sensor sensors[] = {
-    {"presenca_quarto", "Presenca Quarto", "proximity", 9, ""}
+    {"presenca_quarto", "Presenca Quarto", "proximity", 14, ""}
   };
   
   Serial.print("Number of sensors: ");
@@ -107,21 +107,26 @@ void setup() {
 
   Serial.println("RUNNING SETUP....");
   String response = registryWakandaDevice(device);
+  Serial.println(response);
   Serial.println("Device registred!");
   
-  Device wakandaDevice = getWakandaDevice(response);
+  wakandaDevice = getWakandaDevice(response);
+  
   Serial.println(wakandaDevice.displayName);
   Serial.println(wakandaDevice.network.localIP);
   Serial.println(wakandaDevice.sensors[0].topic);
+  Serial.println(wakandaDevice.sensors[0].pin);
   Serial.println(wakandaDevice.actuators[0].topic);
+  Serial.println(wakandaDevice.actuators[0].pin);
   
   Serial.println("Activating device actuator");
-  pinMode(wakandaDevice.actuators[0].pin, OUTPUT);
+  pinMode(15, OUTPUT);
 
   Serial.print("Subcribing in topic: ");
   Serial.println(wakandaDevice.actuators[0].topic);
   mqttConnection.subscribe(wakandaDevice.actuators[0].topic);
-  Serial.print("MQTT topic activated!");
+  Serial.println("Subscribed in topic!");
+  
 }
 
 void loop() {
@@ -132,7 +137,7 @@ void loop() {
 }
 
 void WiFiConnect() {
-
+  
   while ((WiFiMulti.run() != WL_CONNECTED)) {
     delay(500);
     Serial.println("Connecting to WiFi..");
@@ -172,11 +177,12 @@ void MQTTCallback(char* topic, byte* bytePayload, unsigned int lengthPayload) {
     Serial.println(ARRAY_SIZE(topic));  
   
     if (payload.equals("ON") || payload.equals("TurnON")) {
-      Serial.println("Turning ON");
-      digitalWrite(LED_BUILTIN, LOW);
+      Serial.print("Turning ON pin ");
+      
+      digitalWrite(15,  HIGH);
     } else if (payload.equals("OFF") || payload.equals("TurnOFF")) {
-      Serial.println("Turning OFF");
-      digitalWrite(LED_BUILTIN, HIGH);      
+      Serial.print("Turning OFF pin ");            
+      digitalWrite(15, LOW);      
     }
 }
 
@@ -260,7 +266,6 @@ String registryWakandaDevice(Device device) {
   
   JsonArray actuators = payload.createNestedArray("actuators");
 
-   
   for (int i = 0; i < 1; i++){
   
     JsonObject actuators_chield = actuators.createNestedObject();
@@ -300,8 +305,7 @@ Device getDeviceConfig(String name, const char* deviceName, int port, IPAddress 
     dns.toString(),
     ssid
   };
-
-  
+ 
   Device deviceConfig {
     name,
     deviceName,
@@ -312,8 +316,6 @@ Device getDeviceConfig(String name, const char* deviceName, int port, IPAddress 
 
   return deviceConfig;
 }
-
-
 
 String request(String method, String uri, String payload, const char* fingerprint) {
   
@@ -339,9 +341,8 @@ String request(String method, String uri, String payload, const char* fingerprin
     if (responseCode == HTTP_CODE_OK) {
       Serial.println("Request succeed!");
       responseContent = https.getString();
-    } else {
-      Serial.println("Status code not OK...");
-      Serial.println(responseCode);      
+      Serial.print("GET RESPONSE - ");
+      Serial.println(responseContent);      
     }
 
   } else if ( method == "POST") {
@@ -355,22 +356,28 @@ String request(String method, String uri, String payload, const char* fingerprin
     if (responseCode == HTTP_CODE_OK) {
       Serial.println("Request succeed!");
       responseContent = https.getString();
+      Serial.print("POST RESPONSE - ");
+      Serial.println(responseContent);
     } else if (responseCode == 502) {
-      Serial.println("Request 502 device already created!");
-      responseContent = https.getString();      
-    } else {
-      Serial.println("This method not supported...");
+      Serial.println("Device already registered");
+      responseContent = https.getString();
+      Serial.print("POST RESPONSE - ");
+      Serial.println(responseContent);
     }
+  } else {
+    Serial.println("This method not supported...");
   }
-  
+
   https.end();
+
   return responseContent;
 }
 
 String byteMessageToString(byte* byteMessage, unsigned int length) {
      String msg;
  
-    for(int i = 0; i < length; i++) {
+    for(int i = 0; i < length; i++) 
+    {
        char c = (char)byteMessage[i];
        msg += c;
     }
